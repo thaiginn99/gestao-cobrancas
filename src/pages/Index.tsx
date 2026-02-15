@@ -1,23 +1,38 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { loadDebtors, sortDebtors } from "@/lib/debtors";
-import { Debtor, DebtorStatus } from "@/lib/types";
+import { Debtor } from "@/lib/types";
 import { MetricCards } from "@/components/MetricCards";
 import { DebtorTable } from "@/components/DebtorTable";
 import { InterestCalculator } from "@/components/InterestCalculator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Adicionado o ícone LogOut aqui
 import { Search, Landmark, LogOut } from "lucide-react"; 
-// Importação do serviço de logout
 import { logoutExecutivo } from "@/lib/auth_service";
 
 const Index = () => {
-  const [debtors, setDebtors] = useState<Debtor[]>(loadDebtors);
+  // Inicializamos com lista vazia, pois os dados virão do Firebase
+  const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(() => setDebtors(loadDebtors()), []);
+  // Função assíncrona para buscar os dados no Firestore
+  const refresh = useCallback(async () => {
+    try {
+      const data = await loadDebtors();
+      setDebtors(data);
+    } catch (error) {
+      console.error("Erro ao carregar devedores:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Carrega os dados assim que o Thiago entra na página
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const filtered = useMemo(() => {
     let list = debtors;
@@ -46,7 +61,6 @@ const Index = () => {
           
           <div className="flex items-center gap-4">
             <p className="text-sm text-muted-foreground capitalize">{today}</p>
-            {/* Botão de Sair posicionado corretamente no Header */}
             <button 
               onClick={() => logoutExecutivo()} 
               className="flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"
@@ -88,14 +102,17 @@ const Index = () => {
             className="w-[170px]"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            placeholder="Vencimento"
           />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">Lista de Devedores</h2>
-            <DebtorTable debtors={filtered} onRefresh={refresh} />
+            {loading ? (
+              <p className="text-muted-foreground">Carregando dados da nuvem...</p>
+            ) : (
+              <DebtorTable debtors={filtered} onRefresh={refresh} />
+            )}
           </section>
           <aside>
             <InterestCalculator onDebtorAdded={refresh} />
