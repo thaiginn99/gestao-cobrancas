@@ -33,27 +33,52 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
   const { toast } = useToast();
   const [editDebtor, setEditDebtor] = useState<Debtor | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // Estado para controle de processamento
 
-  const handlePay = (id: string) => {
-    updateDebtor(id, { status: "pago" });
-    onRefresh();
-    toast({ title: "Pagamento registrado com sucesso!" });
+  // ALTERAÇÃO: Função assíncrona para registrar pagamento no Firestore
+  const handlePay = async (id: string) => {
+    setLoading(true);
+    try {
+      await updateDebtor(id, { status: "pago" });
+      onRefresh();
+      toast({ title: "Pagamento registrado com sucesso!" });
+    } catch (error) {
+      toast({ title: "Erro ao processar pagamento.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = () => {
+  // ALTERAÇÃO: Função assíncrona para exclusão definitiva
+  const handleDelete = async () => {
     if (!deleteId) return;
-    deleteDebtor(deleteId);
-    setDeleteId(null);
-    onRefresh();
-    toast({ title: "Devedor excluído." });
+    setLoading(true);
+    try {
+      await deleteDebtor(deleteId);
+      setDeleteId(null);
+      onRefresh();
+      toast({ title: "Devedor excluído do banco de dados." });
+    } catch (error) {
+      toast({ title: "Erro ao excluir registro.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditSave = () => {
+  // ALTERAÇÃO: Função assíncrona para salvar edições mantendo campos extras
+  const handleEditSave = async () => {
     if (!editDebtor) return;
-    updateDebtor(editDebtor.id, editDebtor);
-    setEditDebtor(null);
-    onRefresh();
-    toast({ title: "Devedor atualizado!" });
+    setLoading(true);
+    try {
+      await updateDebtor(editDebtor.id, editDebtor);
+      setEditDebtor(null);
+      onRefresh();
+      toast({ title: "Devedor atualizado com sucesso!" });
+    } catch (error) {
+      toast({ title: "Erro ao atualizar informações.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -76,7 +101,7 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
               {debtors.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Nenhum devedor encontrado.
+                    Nenhum devedor encontrado no banco de dados.
                   </TableCell>
                 </TableRow>
               )}
@@ -94,7 +119,7 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
                               <ShieldCheck className="h-4 w-4 text-primary cursor-help" />
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
-                              <p className="font-semibold text-xs">Garantia</p>
+                              <p className="font-semibold text-xs">Garantia de Penhora</p>
                               <p className="text-xs">{d.collateralDescription}</p>
                               {d.collateralValue ? (
                                 <p className="text-xs mt-1">Valor: {formatCurrency(d.collateralValue)}</p>
@@ -114,14 +139,14 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         {d.status !== "pago" && (
-                          <Button size="icon" variant="ghost" onClick={() => handlePay(d.id)} title="Registrar Pagamento">
+                          <Button size="icon" variant="ghost" onClick={() => handlePay(d.id)} disabled={loading} title="Registrar Pagamento">
                             <CheckCircle2 className="h-4 w-4 text-success" />
                           </Button>
                         )}
-                        <Button size="icon" variant="ghost" onClick={() => setEditDebtor({ ...d })} title="Editar">
+                        <Button size="icon" variant="ghost" onClick={() => setEditDebtor({ ...d })} disabled={loading} title="Editar">
                           <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteId(d.id)} title="Excluir">
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteId(d.id)} disabled={loading} title="Excluir">
                           <Trash2 className="h-4 w-4 text-danger" />
                         </Button>
                       </div>
@@ -133,22 +158,22 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
           </Table>
         </div>
 
-        {/* Edit Dialog */}
+        {/* Edit Dialog - Preservando todos os campos extras */}
         <Dialog open={!!editDebtor} onOpenChange={(o) => !o && setEditDebtor(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Editar Devedor</DialogTitle>
-              <DialogDescription>Altere as informações do devedor.</DialogDescription>
+              <DialogTitle>Editar Registro Executivo</DialogTitle>
+              <DialogDescription>Altere as informações financeiras e de garantia.</DialogDescription>
             </DialogHeader>
             {editDebtor && (
               <div className="grid gap-4 py-2">
                 <div className="grid gap-2">
-                  <Label>Nome</Label>
+                  <Label>Nome do Cliente</Label>
                   <Input value={editDebtor.name} onChange={(e) => setEditDebtor({ ...editDebtor, name: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label>Principal (R$)</Label>
+                    <Label>Capital (R$)</Label>
                     <Input type="number" value={editDebtor.principal} onChange={(e) => setEditDebtor({ ...editDebtor, principal: +e.target.value })} />
                   </div>
                   <div className="grid gap-2">
@@ -156,9 +181,8 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
                     <Input type="date" value={editDebtor.dueDate} onChange={(e) => setEditDebtor({ ...editDebtor, dueDate: e.target.value })} />
                   </div>
                 </div>
-                {/* Collateral fields */}
                 <div className="grid gap-2">
-                  <Label>Descrição do Bem de Penhora</Label>
+                  <Label>Bem em Penhora (Garantia)</Label>
                   <Input
                     placeholder="Ex: Veículo - Honda Civic 2020"
                     value={editDebtor.collateralDescription || ""}
@@ -166,19 +190,16 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Valor Avaliado da Garantia (R$)</Label>
+                  <Label>Valor da Garantia (R$)</Label>
                   <Input
                     type="number"
-                    placeholder="0,00"
                     value={editDebtor.collateralValue || ""}
                     onChange={(e) => setEditDebtor({ ...editDebtor, collateralValue: +e.target.value })}
                   />
                 </div>
-                {/* Notes */}
                 <div className="grid gap-2">
                   <Label>Observações Executivas</Label>
                   <Textarea
-                    placeholder="Histórico de contatos, promessas de pagamento..."
                     rows={3}
                     value={editDebtor.notes || ""}
                     onChange={(e) => setEditDebtor({ ...editDebtor, notes: e.target.value })}
@@ -188,7 +209,9 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditDebtor(null)}>Cancelar</Button>
-              <Button onClick={handleEditSave}>Salvar</Button>
+              <Button onClick={handleEditSave} disabled={loading}>
+                {loading ? "Sincronizando..." : "Salvar Alterações"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -198,11 +221,11 @@ export function DebtorTable({ debtors, onRefresh }: DebtorTableProps) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confirmar Exclusão</DialogTitle>
-              <DialogDescription>Tem certeza que deseja excluir este devedor? Esta ação não pode ser desfeita.</DialogDescription>
+              <DialogDescription>Deseja remover este registro da nuvem permanentemente? Esta ação não pode ser desfeita.</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
-              <Button variant="destructive" onClick={handleDelete}>Excluir</Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={loading}>Excluir</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
