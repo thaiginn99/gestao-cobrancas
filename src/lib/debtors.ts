@@ -6,8 +6,7 @@ import {
   doc, 
   updateDoc, 
   deleteDoc, 
-  query, 
-  orderBy 
+  query 
 } from "firebase/firestore";
 import { Debtor } from "./types";
 
@@ -64,7 +63,11 @@ export async function deleteDebtor(id: string): Promise<void> {
   await deleteDoc(debtorDoc);
 }
 
-export function formatCurrency(value: number): string {
+// VERSÃO SEGURA: Evita tela branca se o valor for indefinido
+export function formatCurrency(value: number | undefined | null): string {
+  if (typeof value !== 'number' || isNaN(value)) {
+    return "R$ 0,00"; 
+  }
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
