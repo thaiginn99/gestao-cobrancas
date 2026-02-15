@@ -4,20 +4,19 @@ import { Debtor } from "@/lib/types";
 import { MetricCards } from "@/components/MetricCards";
 import { DebtorTable } from "@/components/DebtorTable";
 import { InterestCalculator } from "@/components/InterestCalculator";
+import { StatusChart } from "@/components/StatusChart"; // Novo Componente
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Landmark, LogOut } from "lucide-react"; 
 import { logoutExecutivo } from "@/lib/auth_service";
 
 const Index = () => {
-  // Inicializamos com lista vazia, pois os dados virão do Firebase
   const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Função assíncrona para buscar os dados no Firestore
   const refresh = useCallback(async () => {
     try {
       const data = await loadDebtors();
@@ -29,7 +28,6 @@ const Index = () => {
     }
   }, []);
 
-  // Carrega os dados assim que o Thiago entra na página
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -75,7 +73,7 @@ const Index = () => {
           <MetricCards debtors={debtors} />
         </section>
 
-        {/* Filters */}
+        {/* Filtros preservados */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative max-w-xs flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -106,14 +104,20 @@ const Index = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">Lista de Devedores</h2>
-            {loading ? (
-              <p className="text-muted-foreground">Carregando dados da nuvem...</p>
-            ) : (
-              <DebtorTable debtors={filtered} onRefresh={refresh} />
-            )}
+          <section className="flex flex-col gap-6">
+            {/* GRÁFICO INSERIDO AQUI: Visão executiva de status */}
+            <StatusChart debtors={debtors} />
+
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-foreground">Lista de Devedores</h2>
+              {loading ? (
+                <p className="text-muted-foreground">Carregando dados da nuvem...</p>
+              ) : (
+                <DebtorTable debtors={filtered} onRefresh={refresh} />
+              )}
+            </div>
           </section>
+
           <aside>
             <InterestCalculator onDebtorAdded={refresh} />
           </aside>
