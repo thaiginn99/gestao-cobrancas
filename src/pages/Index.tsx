@@ -4,7 +4,7 @@ import { Debtor } from "@/lib/types";
 import { MetricCards } from "@/components/MetricCards";
 import { DebtorTable } from "@/components/DebtorTable";
 import { InterestCalculator } from "@/components/InterestCalculator";
-import { StatusChart } from "@/components/StatusChart"; // Novo Componente
+import { StatusChart } from "@/components/StatusChart";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Landmark, LogOut } from "lucide-react"; 
@@ -73,7 +73,12 @@ const Index = () => {
           <MetricCards debtors={debtors} />
         </section>
 
-        {/* Filtros preservados */}
+        {/* --- GRÁFICO POSICIONADO ACIMA DOS FILTROS --- */}
+        <section className="mb-8">
+          <StatusChart debtors={debtors} />
+        </section>
+
+        {/* Filtros agora ficam abaixo do gráfico */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative max-w-xs flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -104,18 +109,13 @@ const Index = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <section className="flex flex-col gap-6">
-            {/* GRÁFICO INSERIDO AQUI: Visão executiva de status */}
-            <StatusChart debtors={debtors} />
-
-            <div>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">Lista de Devedores</h2>
-              {loading ? (
-                <p className="text-muted-foreground">Carregando dados da nuvem...</p>
-              ) : (
-                <DebtorTable debtors={filtered} onRefresh={refresh} />
-              )}
-            </div>
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-foreground">Lista de Devedores</h2>
+            {loading ? (
+              <p className="text-muted-foreground">Carregando dados da nuvem...</p>
+            ) : (
+              <DebtorTable debtors={filtered} onRefresh={refresh} />
+            )}
           </section>
 
           <aside>
