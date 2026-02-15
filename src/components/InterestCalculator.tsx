@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateInterest, formatCurrency, addDebtor } from "@/lib/debtors";
 import { Calculator, Plus } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // Adicionado para feedback visual
+import { useToast } from "@/hooks/use-toast";
 
 interface InterestCalculatorProps {
   onDebtorAdded: () => void;
@@ -23,7 +23,7 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
   const [collateralValue, setCollateralValue] = useState("");
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<{ interest: number; total: number } | null>(null);
-  const [isSaving, setIsSaving] = useState(false); // Controle de salvamento
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleCalc = () => {
     const p = parseFloat(principal);
@@ -36,7 +36,6 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
     setResult(calculateInterest(p, r, m, type));
   };
 
-  // CORREÇÃO: Função transformada em assíncrona para o Firebase
   const handleAdd = async () => {
     if (!result || !name.trim()) return;
     
@@ -48,7 +47,7 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
       const dueDate = new Date();
       dueDate.setMonth(dueDate.getMonth() + m);
 
-      // Envia todos os dados (incluindo penhora e notas) para o Firestore
+      // AJUSTE: Garantindo que campos opcionais nunca sejam 'undefined'
       await addDebtor({
         name: name.trim(),
         principal: p,
@@ -59,17 +58,17 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
         total: result.total,
         dueDate: dueDate.toISOString().split("T")[0],
         status: "pendente",
-        collateralDescription: collateralDescription.trim() || undefined,
-        collateralValue: parseFloat(collateralValue) || undefined,
-        notes: notes.trim() || undefined,
+        // Se estiver vazio, envia "" ou 0 em vez de undefined
+        collateralDescription: collateralDescription.trim() || "", 
+        collateralValue: parseFloat(collateralValue) || 0,
+        notes: notes.trim() || "",
       });
 
-      // Limpa os campos após o sucesso
       setName(""); setPrincipal(""); setRate(""); setMonths("");
       setCollateralDescription(""); setCollateralValue(""); setNotes("");
       setResult(null);
       
-      onDebtorAdded(); // Atualiza a tabela no Dashboard
+      onDebtorAdded();
       toast({ title: "Lançamento executivo salvo com sucesso!" });
     } catch (error) {
       toast({ title: "Erro ao salvar no banco de dados.", variant: "destructive" });
@@ -114,7 +113,6 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
           </Button>
         </div>
 
-        {/* Collateral & Notes - Preservados */}
         <div className="grid gap-1.5">
           <Label className="text-xs">Bem de Penhora (opcional)</Label>
           <Input placeholder="Ex: Veículo, Imóvel..." value={collateralDescription} onChange={(e) => setCollateralDescription(e.target.value)} />
