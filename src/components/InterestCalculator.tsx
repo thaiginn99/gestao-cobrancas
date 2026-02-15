@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateInterest, formatCurrency, addDebtor } from "@/lib/debtors";
 import { Calculator, Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // Adicionado para feedback visual
 
 interface InterestCalculatorProps {
   onDebtorAdded: () => void;
 }
 
 export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
+  const { toast } = useToast();
   const [name, setName] = useState("");
   const [principal, setPrincipal] = useState("");
   const [rate, setRate] = useState("");
@@ -21,40 +23,59 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
   const [collateralValue, setCollateralValue] = useState("");
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<{ interest: number; total: number } | null>(null);
+  const [isSaving, setIsSaving] = useState(false); // Controle de salvamento
 
   const handleCalc = () => {
     const p = parseFloat(principal);
     const r = parseFloat(rate);
     const m = parseInt(months);
-    if (isNaN(p) || isNaN(r) || isNaN(m) || p <= 0 || r <= 0 || m <= 0) return;
+    if (isNaN(p) || isNaN(r) || isNaN(m) || p <= 0 || r <= 0 || m <= 0) {
+      toast({ title: "Preencha todos os campos para calcular.", variant: "destructive" });
+      return;
+    }
     setResult(calculateInterest(p, r, m, type));
   };
 
-  const handleAdd = () => {
+  // CORREÇÃO: Função transformada em assíncrona para o Firebase
+  const handleAdd = async () => {
     if (!result || !name.trim()) return;
-    const p = parseFloat(principal);
-    const r = parseFloat(rate);
-    const m = parseInt(months);
-    const dueDate = new Date();
-    dueDate.setMonth(dueDate.getMonth() + m);
-    addDebtor({
-      name: name.trim(),
-      principal: p,
-      interestRate: r,
-      interestType: type,
-      periodMonths: m,
-      interest: result.interest,
-      total: result.total,
-      dueDate: dueDate.toISOString().split("T")[0],
-      status: "pendente",
-      collateralDescription: collateralDescription.trim() || undefined,
-      collateralValue: parseFloat(collateralValue) || undefined,
-      notes: notes.trim() || undefined,
-    });
-    setName(""); setPrincipal(""); setRate(""); setMonths("");
-    setCollateralDescription(""); setCollateralValue(""); setNotes("");
-    setResult(null);
-    onDebtorAdded();
+    
+    setIsSaving(true);
+    try {
+      const p = parseFloat(principal);
+      const r = parseFloat(rate);
+      const m = parseInt(months);
+      const dueDate = new Date();
+      dueDate.setMonth(dueDate.getMonth() + m);
+
+      // Envia todos os dados (incluindo penhora e notas) para o Firestore
+      await addDebtor({
+        name: name.trim(),
+        principal: p,
+        interestRate: r,
+        interestType: type,
+        periodMonths: m,
+        interest: result.interest,
+        total: result.total,
+        dueDate: dueDate.toISOString().split("T")[0],
+        status: "pendente",
+        collateralDescription: collateralDescription.trim() || undefined,
+        collateralValue: parseFloat(collateralValue) || undefined,
+        notes: notes.trim() || undefined,
+      });
+
+      // Limpa os campos após o sucesso
+      setName(""); setPrincipal(""); setRate(""); setMonths("");
+      setCollateralDescription(""); setCollateralValue(""); setNotes("");
+      setResult(null);
+      
+      onDebtorAdded(); // Atualiza a tabela no Dashboard
+      toast({ title: "Lançamento executivo salvo com sucesso!" });
+    } catch (error) {
+      toast({ title: "Erro ao salvar no banco de dados.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -93,7 +114,7 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
           </Button>
         </div>
 
-        {/* Collateral & Notes */}
+        {/* Collateral & Notes - Preservados */}
         <div className="grid gap-1.5">
           <Label className="text-xs">Bem de Penhora (opcional)</Label>
           <Input placeholder="Ex: Veículo, Imóvel..." value={collateralDescription} onChange={(e) => setCollateralDescription(e.target.value)} />
@@ -119,15 +140,9 @@ export function InterestCalculator({ onDebtorAdded }: InterestCalculatorProps) {
               <span className="text-muted-foreground">Total de Juros</span>
               <span className="font-semibold text-primary">{formatCurrency(result.interest)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Parcela Mensal</span>
-              <span className="font-semibold text-foreground">
-                {formatCurrency(result.total / parseInt(months || "1"))}
-              </span>
-            </div>
             {name.trim() && (
-              <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleAdd}>
-                <Plus className="h-4 w-4 mr-1" /> Adicionar como Devedor
+              <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleAdd} disabled={isSaving}>
+                {isSaving ? "Sincronizando..." : <><Plus className="h-4 w-4 mr-1" /> Adicionar como Devedor</>}
               </Button>
             )}
           </div>
